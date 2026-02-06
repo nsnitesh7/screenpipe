@@ -208,12 +208,12 @@ const highlightKeyword = (text: string, keyword: string): JSX.Element => {
 const getContextAroundKeyword = (
   text: string,
   keyword: string,
-  contextLength: number = 40
+  contextLength: number = 150
 ): string => {
-  if (!keyword || !text) return text;
+  if (!keyword || !text) return text.slice(0, 300) + (text.length > 300 ? "..." : "");
 
   const index = text.toLowerCase().indexOf(keyword.toLowerCase());
-  if (index === -1) return text;
+  if (index === -1) return text.slice(0, 300) + (text.length > 300 ? "..." : "");
 
   const start = Math.max(0, index - contextLength);
   const end = Math.min(text.length, index + keyword.length + contextLength);
@@ -1016,8 +1016,8 @@ export function SearchChat() {
               <AccordionItem value={`item-${originalIndex}`}>
                 <AccordionTrigger className="flex flex-col w-full py-2">
                   {/* Main content */}
-                  <div className="flex w-full items-center gap-2">
-                    <span className="text-left truncate">
+                  <div className="flex w-full items-start gap-2">
+                    <span className="text-left text-sm leading-relaxed">
                       {item.type === "OCR" &&
                         highlightKeyword(
                           getContextAroundKeyword(item.content.text, query),

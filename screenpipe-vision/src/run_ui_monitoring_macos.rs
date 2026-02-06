@@ -15,7 +15,7 @@ use tokio::signal;
 use tokio::time::{sleep, timeout, Duration};
 use which::which;
 
-pub async fn run_ui() -> Result<()> {
+pub async fn run_ui(ignored_windows: &[String], included_windows: &[String]) -> Result<()> {
     info!("starting ui monitoring service...");
 
     let binary_name = "ui_monitor";
@@ -152,10 +152,16 @@ pub async fn run_ui() -> Result<()> {
 
     let named_pipe_clone = named_pipe.clone();
 
+    let ignored_json =
+        serde_json::to_string(ignored_windows).unwrap_or_else(|_| "[]".to_string());
+    let included_json =
+        serde_json::to_string(included_windows).unwrap_or_else(|_| "[]".to_string());
+
     while is_running.load(std::sync::atomic::Ordering::Relaxed) {
-        // Clone the PathBuf for each iteration
         let mut child = Command::new(&ui_monitor_path)
             .arg(named_pipe_clone.path.clone())
+            .arg(ignored_json.as_str())
+            .arg(included_json.as_str())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()

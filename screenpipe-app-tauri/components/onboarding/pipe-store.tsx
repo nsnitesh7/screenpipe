@@ -5,8 +5,6 @@ import OnboardingNavigation from "./navigation";
 import { toast } from "@/components/ui/use-toast";
 import { invoke } from "@tauri-apps/api/core";
 import posthog from "posthog-js";
-import { PipeApi } from "@/lib/api/store";
-import { useSettings } from "@/lib/hooks/use-settings";
 
 interface OnboardingPipeStoreProps {
   className?: string;
@@ -21,7 +19,7 @@ const OnboardingPipeStore: React.FC<OnboardingPipeStoreProps> = ({
 }) => {
   const [isLoading, setIsLoading] = React.useState(false);
   const [status, setStatus] = React.useState<string>("");
-  const { settings } = useSettings();
+
   const handleOpenSearchPipe = async () => {
     setIsLoading(true);
     try {
@@ -49,32 +47,33 @@ const OnboardingPipeStore: React.FC<OnboardingPipeStoreProps> = ({
       const listResponse = await fetch("http://localhost:3030/pipes/list");
       const listData = await listResponse.json();
       const searchPipe = listData.data.find(
-        (p: any) => p.config?.id === "search"
+        (p: any) => p.id === "search" || p.config?.id === "search"
       );
 
-      // If not installed, download it first
+      // If not installed, download it from GitHub directly (no login required)
       if (!searchPipe) {
         setStatus("downloading search pipe... (~10s)");
-        const pipeApi = await PipeApi.create(settings.user?.token!);
-        const storePlugins = await pipeApi.listStorePlugins();
-        const downloadData = await pipeApi.downloadPipe(
-          storePlugins.find((p) => p.name === "search")?.id!
-        );
-
-        await fetch("http://localhost:3030/pipes/download-private", {
+        
+        // Use direct GitHub URL - no authentication needed
+        const searchPipeUrl = "https://github.com/mediar-ai/screenpipe/tree/main/pipes/search";
+        
+        const downloadResponse = await fetch("http://localhost:3030/pipes/download", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            pipe_name: "search",
-            pipe_id: "search",
-            url: downloadData.download_url,
+            url: searchPipeUrl,
           }),
         });
 
+        if (!downloadResponse.ok) {
+          const errorData = await downloadResponse.json();
+          throw new Error(errorData.error || "Failed to download search pipe");
+        }
+
         // Wait for download to complete
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 3000));
       }
 
       // Enable the search pipe
@@ -95,7 +94,7 @@ const OnboardingPipeStore: React.FC<OnboardingPipeStoreProps> = ({
       const response = await fetch("http://localhost:3030/pipes/list");
       const data = await response.json();
       const updatedSearchPipe = data.data.find(
-        (p: any) => p.config?.id === "search"
+        (p: any) => p.id === "search" || p.config?.id === "search"
       );
 
       if (!updatedSearchPipe?.config?.port) {

@@ -644,7 +644,7 @@ async fn main() {
             _ => {}
         })
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // .plugin(tauri_plugin_updater::Builder::new().build()) // DISABLED
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
@@ -664,7 +664,7 @@ async fn main() {
                 .set_focus()
                 .expect("Can't focus window!");
         }))
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // .plugin(tauri_plugin_updater::Builder::new().build()) // DISABLED
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_sentry::init(&sentry_guard))
         .manage(sidecar_state)
@@ -805,12 +805,15 @@ async fn main() {
                 debug!("Skipping sidecar spawn: dev_mode enabled");
             }
 
-            // Initialize update check
-            let update_manager = start_update_check(&app_handle, 5)?;
+            // Initialize update check - DISABLED
+            // let update_manager = start_update_check(&app_handle, 5)?;
 
-            // Setup tray
+            // Setup tray with disabled update item
             if let Some(_) = app_handle.tray_by_id("screenpipe_main") {
-                let update_item = update_manager.update_now_menu_item_ref().clone();
+                use tauri::menu::MenuItemBuilder;
+                let update_item = MenuItemBuilder::with_id("update_now", "updates disabled")
+                    .enabled(false)
+                    .build(&app_handle)?;
                 if let Err(e) = tray::setup_tray(&app_handle, &update_item) {
                     error!("Failed to setup tray: {}", e);
                 }

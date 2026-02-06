@@ -659,6 +659,8 @@ async fn main() -> anyhow::Result<()> {
     let monitor_ids_clone = monitor_ids.clone();
     let ignored_windows_clone = cli.ignored_windows.clone();
     let included_windows_clone = cli.included_windows.clone();
+    let ignored_windows_ui_clone = cli.ignored_windows.clone();
+    let included_windows_ui_clone = cli.included_windows.clone();
     let realtime_audio_devices_clone = realtime_audio_devices.clone();
 
     let fps = if cli.fps.is_finite() && cli.fps > 0.0 {
@@ -704,8 +706,8 @@ async fn main() -> anyhow::Result<()> {
                     cli.use_pii_removal,
                     cli.disable_vision,
                     &vision_handle,
-                    &cli.ignored_windows,
-                    &cli.included_windows,
+                    &ignored_windows_clone,
+                    &included_windows_clone,
                     languages_clone.clone(),
                     cli.capture_unfocused_windows,
                     cli.enable_realtime_audio_transcription,
@@ -814,13 +816,15 @@ async fn main() -> anyhow::Result<()> {
     println!("│ local llm              │ {:<34} │", cli.enable_llm);
 
     println!("│ use pii removal        │ {:<34} │", cli.use_pii_removal);
+    let ignored_windows_for_display = cli.ignored_windows.clone();
+    let included_windows_for_display = cli.included_windows.clone();
     println!(
         "│ ignored windows        │ {:<34} │",
-        format_cell(&format!("{:?}", &ignored_windows_clone), VALUE_WIDTH)
+        format_cell(&format!("{:?}", &ignored_windows_for_display), VALUE_WIDTH)
     );
     println!(
         "│ included windows       │ {:<34} │",
-        format_cell(&format!("{:?}", &included_windows_clone), VALUE_WIDTH)
+        format_cell(&format!("{:?}", &included_windows_for_display), VALUE_WIDTH)
     );
     println!(
         "│ ui monitoring          │ {:<34} │",
@@ -1121,7 +1125,7 @@ async fn main() -> anyhow::Result<()> {
 
             loop {
                 tokio::select! {
-                    result = run_ui() => {
+                    result = run_ui(&ignored_windows_ui_clone, &included_windows_ui_clone) => {
                         match result {
                             Ok(_) => break,
                             Err(e) => {

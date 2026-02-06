@@ -9,7 +9,7 @@
     "devUrl": "http://localhost:3000"
   },
   "bundle": {
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "active": true,
     "category": "DeveloperTool",
     "copyright": "",
@@ -39,7 +39,7 @@
   },
   "plugins": {
     "updater": {
-      "active": true,
+      "active": false,
       "dialog": true,
       "endpoints": [
         "https://cdn.crabnebula.app/update/mediar/screenpipe/{{target}}-{{arch}}/{{current_version}}"

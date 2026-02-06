@@ -8,7 +8,7 @@ import { NotesEditor } from '@/components/live-transcription/notes-editor'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Split from 'react-split'
 import { TranscriptionView } from '@/components/live-transcription/transcription-view'
-import { Square, Play } from "lucide-react"
+import { Square, Play, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { MeetingProvider, useMeetingContext, archiveLiveMeeting, LiveMeetingData } from '@/components/live-transcription/hooks/storage-for-live-meeting'
 import { useSettings } from "@/lib/hooks/use-settings"
@@ -17,6 +17,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { toast } from "@/hooks/use-toast"
 import { handleStartNewMeeting } from '@/components/meeting-history/meeting-utils'
 import { cn } from "@/lib/utils"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ServiceStatus } from '../meeting-history/types'
 
 
 export function LiveTranscription() {
@@ -24,7 +26,8 @@ export function LiveTranscription() {
         chunks,
         isLoadingRecent: isLoading,
         isRecording,
-        toggleRecording
+        toggleRecording,
+        serviceStatus
     } = useTranscriptionService()
 
     const { scrollRef, onScroll, isScrolledToBottom } = useAutoScroll(chunks)
@@ -85,8 +88,27 @@ export function LiveTranscription() {
 
     return (
         <div className="h-full flex flex-col">
+            {/* Status alerts for realtime transcription */}
+            {serviceStatus === 'forbidden' && (
+                <Alert className="mx-4 mt-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+                        realtime transcription is not enabled. enable it in screenpipe settings to use live transcription.
+                        using browser-based transcription as fallback.
+                    </AlertDescription>
+                </Alert>
+            )}
+            {serviceStatus === 'unavailable' && !isLoading && (
+                <Alert className="mx-4 mt-2 border-orange-500 bg-orange-50 dark:bg-orange-900/20">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-orange-700 dark:text-orange-400">
+                        screenpipe is not running or realtime transcription is unavailable. 
+                        using browser-based transcription as fallback.
+                    </AlertDescription>
+                </Alert>
+            )}
             <div
-                className="w-full relative"
+                className="w-full relative flex-1"
                 style={{ height: windowHeight ? `${windowHeight}px` : '100vh' }}
             >
                 {/* Update recording toggle button with tooltip */}

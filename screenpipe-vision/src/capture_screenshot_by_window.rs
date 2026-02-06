@@ -161,31 +161,22 @@ impl WindowFilters {
         let app_name_lower = app_name.to_lowercase();
         let title_lower = title.to_lowercase();
 
-        // If include list is empty, we're done
+        let matches_ignore = !self.ignore_set.is_empty()
+            && self.ignore_set.iter().any(|ignore| {
+                app_name_lower.contains(ignore) || title_lower.contains(ignore)
+            });
+
+        if matches_ignore {
+            return false;
+        }
+
         if self.include_set.is_empty() {
             return true;
         }
 
-        // Check include list
-        if self
-            .include_set
-            .iter()
-            .any(|include| app_name_lower.contains(include) || title_lower.contains(include))
-        {
-            return true;
-        }
-
-        // Check ignore list first (usually smaller)
-        if !self.ignore_set.is_empty()
-            && self
-                .ignore_set
-                .iter()
-                .any(|ignore| app_name_lower.contains(ignore) || title_lower.contains(ignore))
-        {
-            return false;
-        }
-
-        false
+        self.include_set.iter().any(|include| {
+            app_name_lower.contains(include) || title_lower.contains(include)
+        })
     }
 }
 

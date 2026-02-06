@@ -171,6 +171,10 @@ struct WindowIdentifier: Hashable {
 // Change the set declaration
 var changedWindows = Set<WindowIdentifier>()
 
+// Ignored/included patterns passed from CLI (same semantics as recording: substring match on app or window title)
+var cliIgnoredPatterns: [String] = []
+var cliIncludedPatterns: [String] = []
+
 // Add synchronization queue and cleanup flag
 let synchronizationQueue = DispatchQueue(label: "com.screenpipe.synchronization")
 var isCleaningUp = false
@@ -232,13 +236,28 @@ func startMonitoring() {
         exit(0)
     }
 
-    // get args
+    // get args: [0]=exe, [1]=named pipe path, [2]=ignored windows JSON array, [3]=included windows JSON array
     let args = CommandLine.arguments
+    
+    guard args.count >= 2 else {
+        print("error: insufficient arguments (expected at least named pipe path)")
+        exit(1)
+    }
+    
     let namedPipePath = args[1]
 
     if namedPipePath.isEmpty {
         print("error: named pipe path is empty")
         exit(1)
+    }
+
+    if args.count > 2, let data = args[2].data(using: .utf8),
+        let arr = try? JSONDecoder().decode([String].self, from: data) {
+        cliIgnoredPatterns = arr.map { $0.lowercased() }
+    }
+    if args.count > 3, let data = args[3].data(using: .utf8),
+        let arr = try? JSONDecoder().decode([String].self, from: data) {
+        cliIncludedPatterns = arr.map { $0.lowercased() }
     }
 
     // create handle
@@ -366,27 +385,41 @@ func monitorCurrentFrontmostApplication() {
         .components(separatedBy: CharacterSet.controlCharacters).joined()
         .trimmingCharacters(in: .whitespacesAndNewlines)
 
-    // First check if app should be ignored
-    let state = loadOrCreateState()
-    if state.ignoredApps.contains(appName) {
-        print("skipping ignored app: \(appName)")
-        return
-    }
-
     let pid = app.processIdentifier
     let axApp = AXUIElementCreateApplication(pid)
 
-    // Get window name BEFORE initializing structures
+    // Get window name before filter check so we can match on both app and window title
     var windowName = "unknown window"
     var windowValue: AnyObject?
     let result = AXUIElementCopyAttributeValue(
         axApp, kAXFocusedWindowAttribute as CFString, &windowValue)
     if result == .success, let window = windowValue as! AXUIElement? {
         if let titleValue = getAttributeValue(window, forAttribute: kAXTitleAttribute) as? String {
-            // Sanitize window name immediately when we get it
             windowName = titleValue.lowercased()
                 .components(separatedBy: CharacterSet.controlCharacters).joined()
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
+    // Apply ignored windows: CLI list (substring match) or fallback to state file (exact app name)
+    if !cliIgnoredPatterns.isEmpty {
+        if cliIgnoredPatterns.contains(where: { appName.contains($0) || windowName.contains($0) }) {
+            print("skipping ignored app/window: \(appName) / \(windowName)")
+            return
+        }
+    } else {
+        let state = loadOrCreateState()
+        if state.ignoredApps.contains(appName) {
+            print("skipping ignored app: \(appName)")
+            return
+        }
+    }
+
+    // If include list is set, only log when app or window title matches
+    if !cliIncludedPatterns.isEmpty {
+        if !cliIncludedPatterns.contains(where: { appName.contains($0) || windowName.contains($0) }) {
+            print("skipping (not in included list): \(appName) / \(windowName)")
+            return
         }
     }
 

@@ -9,6 +9,7 @@
     "predev": "bun scripts/pre_build.js",
     "prebuild": "bun scripts/pre_build.js",
     "tauri": "tauri",
+    "sign:macos": "bash scripts/sign-macos-app.sh",
     "clean": "rm -rf out && cargo clean && rm -rf src-tauri/{screenpipe-*,tesseract-*,ffmpeg*,bun*,ollama*,ui_monitor*} node_modules"
   },
   "dependencies": {

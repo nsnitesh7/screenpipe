@@ -4,6 +4,7 @@ import { useBrowserTranscriptionStream } from './hooks/browser-stream-transcript
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useMeetingContext } from './hooks/storage-for-live-meeting'
 import { usePostHog } from 'posthog-js/react'
+import { ServiceStatus } from '../meeting-history/types'
 
 type TranscriptionMode = 'browser' | 'screenpipe'
 
@@ -11,7 +12,8 @@ type TranscriptionMode = 'browser' | 'screenpipe'
 const GLOBAL_STATE = {
     isInitialized: false,
     healthChecked: false,
-    isHealthy: false
+    isHealthy: false,
+    realtimeAvailable: false
 }
 
 export function useTranscriptionService(mode?: TranscriptionMode) {
@@ -22,6 +24,7 @@ export function useTranscriptionService(mode?: TranscriptionMode) {
   const modeRef = useRef<TranscriptionMode | null>(null)
   const posthog = usePostHog()
   const [isHealthChecking, setIsHealthChecking] = useState(true)
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>('unavailable')
 
   // New state and refs for recording control
   const [isRecording, setIsRecording] = useState(false)
@@ -30,21 +33,31 @@ export function useTranscriptionService(mode?: TranscriptionMode) {
   const keepRecordingRef = useRef(false)
 
   // Check health and determine initial mode
-  const checkHealth = async () => {
+  const checkHealth = async (): Promise<{ mode: TranscriptionMode, status: ServiceStatus }> => {
     try {
       const response = await fetch('http://localhost:3030/health')
       const health = await response.json()
       
       if (health.status === 'healthy') {
-        console.log('transcription-service: health check passed, using screenpipe')
-        return 'screenpipe'
+        // Check audio_status to verify audio recording is working
+        const audioWorking = health.audio_status === 'ok' || health.audio_status === 'healthy'
+        
+        if (audioWorking) {
+          console.log('transcription-service: screenpipe healthy with audio, using screenpipe mode')
+          GLOBAL_STATE.realtimeAvailable = true
+          return { mode: 'screenpipe', status: 'available' }
+        } else {
+          console.log('transcription-service: screenpipe healthy but no audio, audio_status:', health.audio_status)
+          // Still use screenpipe - it might work or provide useful error messages
+          return { mode: 'screenpipe', status: 'available' }
+        }
       } else {
-        console.log('transcription-service: health check failed, using browser')
-        return 'browser'
+        console.log('transcription-service: health check failed, status:', health.status, ', using browser')
+        return { mode: 'browser', status: 'unavailable' }
       }
     } catch (error) {
       console.log('transcription-service: health check error, using browser:', error)
-      return 'browser'
+      return { mode: 'browser', status: 'unavailable' }
     }
   }
 
@@ -56,24 +69,30 @@ export function useTranscriptionService(mode?: TranscriptionMode) {
       setIsHealthChecking(true)
       
       // Only check health once
-      let healthMode: TranscriptionMode
+      let healthResult: { mode: TranscriptionMode, status: ServiceStatus }
       if (!GLOBAL_STATE.healthChecked) {
-        healthMode = await checkHealth()
+        healthResult = await checkHealth()
         GLOBAL_STATE.healthChecked = true
-        GLOBAL_STATE.isHealthy = healthMode === 'screenpipe'
+        GLOBAL_STATE.isHealthy = healthResult.mode === 'screenpipe'
+        setServiceStatus(healthResult.status)
       } else {
-        healthMode = GLOBAL_STATE.isHealthy ? 'screenpipe' : 'browser'
-        console.log('transcription-service: using cached health status:', healthMode)
+        healthResult = { 
+          mode: GLOBAL_STATE.isHealthy ? 'screenpipe' : 'browser',
+          status: GLOBAL_STATE.realtimeAvailable ? 'available' : 'unavailable'
+        }
+        setServiceStatus(healthResult.status)
+        console.log('transcription-service: using cached health status:', healthResult.mode)
       }
 
-      const finalMode = mode || healthMode
-      console.log('transcription-service: initializing with mode:', finalMode)
+      const finalMode = mode || healthResult.mode
+      console.log('transcription-service: initializing with mode:', finalMode, 'status:', healthResult.status)
       
       modeRef.current = finalMode
       posthog.capture('meeting_web_app_transcription_mode_initialized', {
         mode: finalMode,
         requested_mode: mode,
-        health_mode: healthMode,
+        health_mode: healthResult.mode,
+        service_status: healthResult.status,
         from_cache: GLOBAL_STATE.healthChecked
       })
 
@@ -219,6 +238,7 @@ export function useTranscriptionService(mode?: TranscriptionMode) {
     isLoadingRecent: isLoading || isHealthChecking,
     fetchRecentChunks,
     isRecording,
-    toggleRecording
+    toggleRecording,
+    serviceStatus
   }
 } 

@@ -215,8 +215,12 @@ export function TranscriptionView({ isLoading, settings }: TranscriptionViewProp
                     className="flex-1 overflow-y-auto bg-card min-h-0"
                 >
                     {(!data?.chunks || data.chunks.length === 0) && (
-                        <div className="flex items-center justify-center h-full text-gray-500">
-                            <p>waiting for transcription...</p>
+                        <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4 text-center">
+                            <p className="text-lg mb-2">waiting for transcription...</p>
+                            <p className="text-sm text-gray-400 max-w-md">
+                                make sure screenpipe is running and audio recording is enabled. 
+                                click the play button above to start recording.
+                            </p>
                         </div>
                     )}
                     {data?.chunks && data.chunks.length > 0 && (
