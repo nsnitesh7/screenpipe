@@ -223,13 +223,12 @@ export function NotionSettings() {
         },
       });
 
-      if (localSettings?.shortTasksInterval !== settings?.shortTasksInterval) {
-        await updatePipeConfig(localSettings?.shortTasksInterval || 5, "/api/log", "minute");
-      }
+      // Always update cron config to ensure it matches the saved settings
+      const shortTasksInterval = localSettings?.shortTasksInterval ?? settings?.shortTasksInterval ?? 5;
+      await updatePipeConfig(shortTasksInterval, "/api/log", "minute");
 
-      if (localSettings?.interval !== settings?.interval) {
-        await updatePipeConfig(localSettings?.interval || 1, "/api/intelligence", "hour");
-      }
+      const intelligenceInterval = localSettings?.interval ?? settings?.interval ?? 1;
+      await updatePipeConfig(intelligenceInterval, "/api/intelligence", "hour");
 
       toast({
         title: "Success",
